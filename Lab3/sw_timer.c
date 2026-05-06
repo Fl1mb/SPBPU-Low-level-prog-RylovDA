@@ -144,13 +144,7 @@ sw_timer_handle_t sw_timer_add(unsigned long ticks,
                                void *arg)
 {
     // a7 = номер syscall, a0..a4 — аргументы 
-    return syscalls((unsigned long)ticks,
-                    (unsigned long)type,
-                    (unsigned long)times_to_shot,
-                    (unsigned long)callback_fun,
-                    (unsigned long)arg,
-                    0, 0,
-                    SW_SYSCALL_ADD);
+    return do_sw_timer_add(ticks, type, times_to_shot, callback_fun, arg);
 }
 
 bool sw_timer_is_active(sw_timer_handle_t index)
@@ -161,13 +155,12 @@ bool sw_timer_is_active(sw_timer_handle_t index)
 
 int sw_timer_remove(sw_timer_handle_t index)
 {
-    return syscalls((unsigned long)index, 0, 0, 0, 0, 0, 0, SW_SYSCALL_REMOVE);
+    return do_sw_timer_remove(index);
 }
 
 int sw_timer_change(sw_timer_handle_t index, unsigned long new_ticks)
 {
-    return syscalls((unsigned long)index, (unsigned long)new_ticks,
-                    0, 0, 0, 0, 0, SW_SYSCALL_CHANGE);
+    return do_sw_timer_change(index, new_ticks);
 }
 
 
@@ -195,17 +188,17 @@ uintptr_t handle_trap(uintptr_t mcause, uintptr_t mepc, uintptr_t *sp_saved)
         long result = -1;
         switch (a7) {
         case SW_SYSCALL_ADD:
-            result = do_sw_timer_add((unsigned long)a0,
+            result = sw_timer_add((unsigned long)a0,
                                      (sw_timer_type_t)a1,
                                      (unsigned long)a2,
                                      (timer_callback_t)a3,
                                      (void *)a4);
             break;
         case SW_SYSCALL_REMOVE:
-            result = do_sw_timer_remove((sw_timer_handle_t)a0);
+            result = sw_timer_remove((sw_timer_handle_t)a0);
             break;
         case SW_SYSCALL_CHANGE:
-            result = do_sw_timer_change((sw_timer_handle_t)a0,
+            result = sw_timer_change((sw_timer_handle_t)a0,
                                         (unsigned long)a1);
             break;
         default:

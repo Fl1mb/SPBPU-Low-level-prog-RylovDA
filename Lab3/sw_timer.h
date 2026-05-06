@@ -35,4 +35,6 @@ bool sw_timer_is_active(sw_timer_handle_t index);
 int sw_timer_remove(sw_timer_handle_t index);
 int sw_timer_change(sw_timer_handle_t index, unsigned long new_ticks);
 
+void sw_timer_irq_handler(void);
+
 #endif 

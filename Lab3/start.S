@@ -8,7 +8,6 @@
 # define REGBYTES     4
 #endif
 
-
 .global _start
 _start:
     csrr    t0, mhartid             # read current hart id
@@ -17,51 +16,31 @@ _start:
     la      sp, stack_top           # setup stack
 
     # -------------------------------------------------------------
-    # PMP setup: закрываем CLINT (MTIME/MTIMECMP) от U-mode,
-    # оставляем доступ ко всей остальной памяти/MMIO.
-    #
-    # pmp0: TOR, base = 0,           top = 0x02000000 -> R|W|X = 0x0F (TOR=1 -> 0x0F | 0x08 = 0x0F)
-    # pmp1: TOR, base = 0x02000000,  top = 0x02010000 -> нет прав (A=TOR=0x08)
-    # pmp2: TOR, base = 0x02010000,  top = 0xFFFFFFFFFFFFFFFF -> R|W|X
-    #
-    # pmpcfgN layout (1 byte per region):
-    #   bit0 R, bit1 W, bit2 X, bit3..4 A (OFF=0, TOR=1, NA4=2, NAPOT=3), bit7 L
-    # TOR + RWX  = 0x0F
-    # TOR + none = 0x08
+    # PMP setup: больше не нужен, т.к. мы остаемся в M-mode
+    # Можно полностью удалить или оставить для других целей
     # -------------------------------------------------------------
-
-    li   t0, (0x02000000 >> 2)
-    csrw pmpaddr0, t0
-    li   t0, (0x02010000 >> 2)
-    csrw pmpaddr1, t0
+    # Даем полный доступ ко всей памяти
     li   t0, -1
-    csrw pmpaddr2, t0
-
-    # pmpcfg0 = 0x0F | (0x08 << 8) | (0x0F << 16)
-    li   t0, 0x000F080F
+    csrw pmpaddr0, t0
+    li   t0, 0x0F                   # R|W|X для всей памяти
     csrw pmpcfg0, t0
 
     # set trap_vector
     la   t0, trap_vector
     csrw mtvec, t0
 
-    # mstatus setup:
-    #   MPP  = 00  (U-mode после mret)
-    #   MPIE = 1   (прерывания включатся после mret)
-    #   MIE  = 0   (пока в M-mode — без прерываний)
-    # Биты mstatus: MIE=3, MPIE=7, MPP[1:0]=11..12
+    # Включаем прерывания в M-mode
     csrr t0, mstatus
-    li   t1, (3 << 11)              # маска MPP
-    not  t1, t1
-    and  t0, t0, t1                 # MPP = 00
-    li   t1, (1 << 7)               # MPIE
+    li   t1, (1 << 3)               # MIE бит
     or   t0, t0, t1
     csrw mstatus, t0
 
-    # Входим в main в U-моде
-    la   t0, main
-    csrw mepc, t0
-    mret
+    # Просто вызываем main напрямую (без mret)
+    call main
+
+park:
+    wfi
+    j       park
 
 .global timer_setup
 timer_setup:
@@ -143,10 +122,6 @@ trap_vector:
   LREG x31, 31*REGBYTES(sp)
   addi sp, sp, 32*REGBYTES
   mret
-
-park:
-    wfi
-    j       park
 
 .global end
 end:
